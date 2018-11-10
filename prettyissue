@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+#
+# Prettyissue: generate prettified /etc/issue with entry warning and system info
+# https://github.com/somaulte/prettyissue
+#
+# MIT License
+#
+# Copyright (c) 2018 somaulte <somaulte@teknik.io>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# Except as contained in this notice, the name(s) of the above copyright
+# holders shall not be used in advertising or otherwise to promote the sale, use
+# or other dealings in this Software without prior written authorization.
+
+# Get dimensions of tty so we can correctly position elements
+termdata="$(stty -a < /dev/tty0)"
+x_dim="${termdata##*columns }"
+x_dim="${x_dim%%;*}"
+y_dim="${termdata##*rows }"
+y_dim="${y_dim%%;*}"
+
+get_padding() {
+	x_off="$(( (( x_dim / 2 )) - (( width / 2 )) ))"
+	printf -v x_pad "%${x_off}s"
+	y_off="$(( (( y_dim / 2 )) - (( height / 2 )) ))"
+	printf -v y_pad "%$(( y_off - 1 ))s"
+	y_pad="${y_pad// /$'\n'}"
+	p_off="$(( y_dim - (( height + y_off )) ))"
+	# Login consumes 4 lines so we place the prompt 4 lines from the bottom
+	printf -v p_pad "%$(( p_off - 4 ))s"
+	p_pad="${p_pad// /$'\n'}"
+}
+
+# trim func from dylanaraps' pure bash bible
+# https://github.com/dylanaraps/pure-bash-bible#trim-all-white-space-from-string-and-truncate-spaces
+trim() {
+	set -f
+	set -- $*
+	printf '%s\n' "${*//[[:space:]]/ }"
+	set +f
+}
+
+get_issue_data() {
+	# Fetch distro name
+	source "/etc/os-release"
+	distro="${NAME:-${DISTRIB_ID}} ${VERSION_ID:-${DISTRIB_RELEASE}}"
+
+	# Generate data based on which distro we found
+	case "$(trim "$distro")" in
+		"Arch"*)
+			height="24"
+			width="106"
+			get_padding
+			read -rd '' issue_data <<-EOF
+				\e{red}┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐\e{reset}
+				${x_pad}\e{red}│\e{reset}                            Welcome to "\l". If you are not a user on this                            \e{red}│\e{reset}
+				${x_pad}\e{red}│\e{reset}                           machine, you are illegally accessing this machine.                           \e{red}│\e{reset}
+				${x_pad}\e{red}└────────────────────────────────────────────────────────────────────────────────────────────────────────┘\e{reset}
+				
+				${x_pad}\e{lightcyan}                   -\`\e{reset}                    \e{bold}\n.\o\e{reset}
+				${x_pad}\e{lightcyan}                  .o+\`\e{reset}
+				${x_pad}\e{lightcyan}                 \`ooo/\e{reset}                   \e{bold}OS:\e{reset} \S{PRETTY_NAME}
+				${x_pad}\e{lightcyan}                \`+oooo:\e{reset}                  \e{bold}Kernel Release:\e{reset} \r
+				${x_pad}\e{lightcyan}               \`+oooooo:\e{reset}                 \e{bold}Support:\e{reset} \S{SUPPORT_URL}
+				${x_pad}\e{lightcyan}               -+oooooo+:\e{reset}                \e{bold}Current Users:\e{reset} \u
+				${x_pad}\e{lightcyan}             \`/:-:++oooo+:\e{reset}
+				${x_pad}\e{lightcyan}            \`/++++/+++++++:\e{reset}
+				${x_pad}\e{lightcyan}           \`/++++++++++++++:\e{reset}
+				${x_pad}\e{lightcyan}          \`/+++o\e{cyan}oooooooo\e{lightcyan}oooo/\`\e{reset}
+				${x_pad}\e{lightcyan}         ./\e{cyan}ooosssso++osssssso\e{lightcyan}+\`\e{reset}
+				${x_pad}\e{cyan}        .oossssso-\`\`\`\`/ossssss+\`\e{reset}
+				${x_pad}\e{cyan}       -osssssso.      :ssssssso.\e{reset}
+				${x_pad}\e{cyan}      :osssssss/        osssso+++.\e{reset}
+				${x_pad}\e{cyan}     /ossssssss/        +ssssooo/-\e{reset}
+				${x_pad}\e{cyan}   \`/ossssso+/:-        -:/+osssso+-\e{reset}
+				${x_pad}\e{cyan}  \`+sso+:-\`                 \`.-/+oso:\e{reset}
+				${x_pad}\e{cyan} \`++:.                           \`-/+/\e{reset}
+				${x_pad}\e{cyan} .\`                                 \`/\e{reset}
+			EOF
+		;;
+		"Gentoo"*)
+			height="23"
+			width="106"
+			get_padding
+			read -rd '' issue_data <<-EOF
+				\e{red}┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐\e{reset}
+				${x_pad}\e{red}│\e{reset}                            Welcome to "\l". If you are not a user on this                            \e{red}│\e{reset}
+				${x_pad}\e{red}│\e{reset}                           machine, you are illegally accessing this machine.                           \e{red}│\e{reset}
+				${x_pad}\e{red}└────────────────────────────────────────────────────────────────────────────────────────────────────────┘\e{reset}
+				
+				${x_pad}\e{lightmagenta}          -/oyddmdhs+:.\e{reset}              \e{bold}\n.\o\e{reset}
+				${x_pad}\e{lightmagenta}      -o\e{reset}dNMMMMMMMMNNmhy+\e{lightmagenta}-\`\e{reset}
+				${x_pad}\e{lightmagenta}    -y\e{reset}NMMMMMMMMMMMNNNmmdhy\e{lightmagenta}+-\e{reset}         \e{bold}OS:\e{reset} \S{PRETTY_NAME}
+				${x_pad}\e{lightmagenta}  \`o\e{reset}mMMMMMMMMMMMMNmdmmmmddhhy\e{lightmagenta}/\`\e{reset}      \e{bold}Kernel Release:\e{reset} \r
+				${x_pad}\e{lightmagenta}  om\e{reset}MMMMMMMMMMMN\e{lightmagenta}hhyyyo\e{reset}hmdddhhhd\e{lightmagenta}o\`\e{reset}    \e{bold}Support:\e{reset} \S{SUPPORT_URL}
+				${x_pad}\e{lightmagenta} .y\e{reset}dMMMMMMMMMMd\e{lightmagenta}hs++so/s\e{reset}mdddhhhhdm\e{lightmagenta}+\`\e{reset}  \e{bold}Current Users:\e{reset} \u
+				${x_pad}\e{lightmagenta}  oy\e{reset}hdmNMMMMMMMN\e{lightmagenta}dyooy\e{reset}dmddddhhhhyhN\e{lightmagenta}d.\e{reset}
+				${x_pad}\e{lightmagenta}   :o\e{reset}yhhdNNMMMMMMMNNNmmdddhhhhhyym\e{lightmagenta}Mh\e{reset}
+				${x_pad}\e{lightmagenta}     .:\e{reset}+sydNMMMMMNNNmmmdddhhhhhhmM\e{lightmagenta}my\e{reset}
+				${x_pad}\e{lightmagenta}        /m\e{reset}MMMMMMNNNmmmdddhhhhhmMNh\e{lightmagenta}s:\e{reset}
+				${x_pad}\e{lightmagenta}     \`o\e{reset}NMMMMMMMNNNmmmddddhhdmMNhs\e{lightmagenta}+\`\e{reset}
+				${x_pad}\e{lightmagenta}   \`s\e{reset}NMMMMMMMMNNNmmmdddddmNMmhs\e{lightmagenta}/.\e{reset}
+				${x_pad}\e{lightmagenta}  /N\e{reset}MMMMMMMMNNNNmmmdddmNMNdso\e{lightmagenta}:\`\e{reset}
+				${x_pad}\e{lightmagenta} +M\e{reset}MMMMMMNNNNNmmmmdmNMNdso\e{lightmagenta}/-\e{reset}
+				${x_pad}\e{lightmagenta} yM\e{reset}MNNNNNNNmmmmmNNMmhs+/\e{lightmagenta}-\`\e{reset}
+				${x_pad}\e{lightmagenta} /h\e{reset}MMNNNNNNNNMNdhs++/\e{lightmagenta}-\`\e{reset}
+				${x_pad}\e{lightmagenta} \`/\e{reset}ohdmmddhys+++/:\e{lightmagenta}.\`\e{reset}
+				${x_pad}\e{lightmagenta}   \`-//////:--.\e{reset}
+			EOF
+		;;
+		*)
+			height="17"
+			width="106"
+			get_padding
+			read -rd '' issue_data <<-EOF
+				\e{red}┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐\e{reset}
+				${x_pad}\e{red}│\e{reset}                            Welcome to "\l". If you are not a user on this                            \e{red}│\e{reset}
+				${x_pad}\e{red}│\e{reset}                           machine, you are illegally accessing this machine.                           \e{red}│\e{reset}
+				${x_pad}\e{red}└────────────────────────────────────────────────────────────────────────────────────────────────────────┘\e{reset}
+				
+				${x_pad}\e{darkgray}         #####\e{reset}           \e{bold}\n.\o\e{reset}
+				${x_pad}\e{darkgray}        #######\e{reset}
+				${x_pad}\e{darkgray}        ##\e{reset}O\e{darkgray}#\e{reset}O\e{darkgray}##\e{reset}          \e{bold}OS:\e{reset} \S{PRETTY_NAME}
+				${x_pad}\e{darkgray}        #\e{yellow}#####\e{darkgray}#\e{reset}          \e{bold}Kernel Release:\e{reset} \r
+				${x_pad}\e{darkgray}      ##\e{reset}##\e{yellow}###\e{reset}##\e{darkgray}##\e{reset}        \e{bold}Support:\e{reset} \S{SUPPORT_URL}
+				${x_pad}\e{darkgray}     #\e{reset}##########\e{darkgray}##\e{reset}       \e{bold}Current Users:\e{reset} \u
+				${x_pad}\e{darkgray}    #\e{reset}############\e{darkgray}##\e{reset}
+				${x_pad}\e{darkgray}    #\e{reset}############\e{darkgray}###\e{reset}
+				${x_pad}\e{yellow}   ##\e{darkgray}#\e{reset}###########\e{darkgray}##\e{yellow}#\e{reset}
+				${x_pad}\e{yellow} ######\e{darkgray}#\e{reset}#######\e{darkgray}#\e{yellow}######\e{reset}
+				${x_pad}\e{yellow} #######\e{darkgray}#\e{reset}#####\e{darkgray}#\e{yellow}#######\e{reset}
+				${x_pad}\e{yellow}   #####\e{darkgray}#######\e{yellow}#####\e{reset}
+			EOF
+		;;
+	esac
+}
+
+main() {
+	# Initialize /etc/issue file
+	: > /etc/issue
+
+	# Prepare issue data
+	get_issue_data
+
+	# Write to /etc/issue
+	printf '%b%s\n%b' "${y_pad}" "${x_pad}${issue_data}" "${p_pad}" >> /etc/issue
+}
+
+main "$@"
