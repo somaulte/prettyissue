@@ -29,17 +29,18 @@
 # holders shall not be used in advertising or otherwise to promote the sale, use
 # or other dealings in this Software without prior written authorization.
 
-# Get dimensions of tty so we can correctly position elements
-termdata="$(stty -a < /dev/tty0)"
-x_dim="${termdata##*columns }"
-x_dim="${x_dim%%;*}"
-y_dim="${termdata##*rows }"
-y_dim="${y_dim%%;*}"
-
+# Generate offsets using the tty dimensions to center data
 get_padding() {
+	# Get dimensions of tty
+	tty_dims="$(stty size < /dev/tty0)" || tty_dims="$(< /etc/prettyissue/dim)" || tty_dims="$height $width"
+	x_dim="${tty_dims##* }"
+	y_dim="${tty_dims%% *}"
+
+	# Calculate offsets
 	x_off="$(( (( x_dim / 2 )) - (( width / 2 )) ))"
 	printf -v x_pad "%${x_off}s"
 	y_off="$(( (( y_dim / 2 )) - (( height / 2 )) ))"
+	# /etc/issue skips printing to the top line, so we skip counting it
 	printf -v y_pad "%$(( y_off - 1 ))s"
 	y_pad="${y_pad// /$'\n'}"
 	p_off="$(( y_dim - (( height + y_off )) ))"
@@ -57,6 +58,7 @@ trim() {
 	set +f
 }
 
+# Determine which ascii distro logo to display
 get_issue_data() {
 	# Fetch distro name
 	source "/etc/os-release"
@@ -152,7 +154,57 @@ get_issue_data() {
 	esac
 }
 
+# Generate various configuration files
+gen_conf() {
+	case "$1" in
+		'd'|'dimensions' )
+			[[ ! -d "/etc/prettyissue" ]] && mkdir -p /etc/prettyissue
+			printf '%b\n' "$(stty size < '/dev/tty0')" > /etc/prettyissue/dimensions
+			printf 'Wrote tty dimensions to /etc/prettyissue/dimensions\n'
+		;;
+	esac
+}
+
+# Print usage info
+usage() {
+	IFS=$'\n'
+	read -rd '' "usage_doc" <<-'EOF'
+		Usage: prettyissue {OPTION}
+		   Options:
+		   	-c, --conf TEMPLATE	Generate a specific configuration file
+		   	-h, --help		Display this message
+
+		   Templates:
+		   	d, dimensions		Lists tty dimensions
+	EOF
+	printf '%b\n' "$usage_doc"
+}
+
 main() {
+	# Check for any specified options
+	[[ -n "$1" ]] && {
+		case "$1" in
+			'-c'|'--conf' )
+				[[ -n "$2" ]] && {
+					gen_conf "$2"
+					exit 0
+				} || {
+					printf 'Option "%b" requires additional parameters\n' "$1"
+					exit 1
+				}
+			;;
+			'-h'|'--help' )
+				usage
+				exit 0
+			;;
+			* )
+				printf 'Invalid option "%b"\n' "$1"
+				usage
+				exit 1
+			;;
+		esac
+	}
+
 	# Initialize /etc/issue file
 	: > /etc/issue
 
@@ -163,4 +215,9 @@ main() {
 	printf '%b%s\n%b' "${y_pad}" "${x_pad}${issue_data}" "${p_pad}" >> /etc/issue
 }
 
-main "$@"
+# We need root permissions to write to /etc/issue
+# Check if running as root
+[[ "$EUID" != "0" ]] && {
+	printf 'prettyissue must be run as root\n'
+	exit 1
+} ||  main "$@"
